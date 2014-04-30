@@ -101,7 +101,16 @@ this variable.")
 	       (append
 		(when (cdr (assoc :prologue params))
 		  (list (cdr (assoc :prologue params))))
+		'("######################################################################")
+		'("## Beginning org variable transfer")
+		'("  try(detach(.org_variables_), silent=TRUE)")
+		'("  .org_variables_ <- new.env()")
 		(org-babel-variable-assignments:R params)
+		'("  lockEnvironment(.org_variables_)")
+		'("  attach(.org_variables_)")
+		'("  save(.org_variables_, file='org_variables.RData')")
+		'("## end org variable transfer")
+		'("######################################################################")
 		(list body)
 		(when (cdr (assoc :epilogue params))
 		  (list (cdr (assoc :epilogue params)))))
@@ -205,20 +214,9 @@ This function is called by `org-babel-execute-src-block'."
 			  "TRUE" "FALSE"))
 	      (row-names (if rownames-p "1" "NULL")))
 	  (if (= max min)
-	      (format "%s <- read.table(\"%s\",
-                      header=%s,
-                      row.names=%s,
-                      sep=\"\\t\",
-                      as.is=TRUE)" name file header row-names)
-	    (format "%s <- read.table(\"%s\",
-                   header=%s,
-                   row.names=%s,
-                   sep=\"\\t\",
-                   as.is=TRUE,
-                   fill=TRUE,
-                   col.names = paste(\"V\", seq_len(%d), sep =\"\"))"
-		    name file header row-names max))))
-    (format "%s <- %s" name (org-babel-R-quote-tsv-field value))))
+	      (format "    assign( '%s', read.table(\"%s\", header=%s, row.names=%s, sep=\"\\t\", as.is=TRUE ), envir = .org_variables_ ); lockBinding('%s', .org_variables_)" name file header row-names name)
+	    (format "    assign( '%s', read.table(\"%s\", header=%s, row.names=%s, sep=\"\\t\", as.is=TRUE, fill=TRUE, col.names = paste(\"V\", seq_len(%d), sep =\"\") ), envir = .org_variables_ ); lockBinding('%s', .org_variables_)" name file header row-names max name))))
+    (format "    assign('%s', %s, envir = .org_variables_); lockBinding('%s', .org_variables_)" name (org-babel-R-quote-tsv-field value) name)))
 
 (defvar ess-ask-for-ess-directory) ; dynamically scoped
 (defun org-babel-R-initiate-session (session params)
@@ -282,7 +280,7 @@ Each member of this list is a list with three members:
 	 (device-info (or (assq (intern (concat ":" device))
 				org-babel-R-graphics-devices)
                           (assq :png org-babel-R-graphics-devices)))
-        (extra-args (cdr (assq :R-dev-args params))) filearg args)
+	 (extra-args (cdr (assq :R-dev-args params))) filearg args)
     (setq device (nth 1 device-info))
     (setq filearg (nth 2 device-info))
     (setq args (mapconcat
