@@ -95,24 +95,16 @@ this variable.")
 
 (defun org-babel-expand-body:R (body params &optional graphics-file)
   "Expand BODY according to PARAMS, return the expanded body."
-  (let ((graphics-file
-	 (or graphics-file (org-babel-graphical-output-file params))))
     (mapconcat #'identity
 	       (append
 		(when (cdr (assoc :prologue params))
 		  (list (cdr (assoc :prologue params))))
-		'("## Beginning org variable transfer")
-		'("  while ('org:variables' %in% search()) {detach('org:variables')}")
-		'("  local({")
-		'("  orgVars <- attach(what=NULL, name='org:variables')")
+		'("     createOrgVariablesEnvironment()")
 		(org-babel-variable-assignments:R params)
-		'("  lockEnvironment(orgVars)")
-		'("  })")
-		'("## end org variable transfer")
 		(list body)
 		(when (cdr (assoc :epilogue params))
 		  (list (cdr (assoc :epilogue params)))))
-	       "\n")))
+	       "\n"))
 
 (defun org-babel-execute:R (body params)
   "Execute a block of R code.
@@ -213,9 +205,9 @@ This function is called by `org-babel-execute-src-block'."
 			  "TRUE" "FALSE"))
 	      (row-names (if rownames-p "1" "NULL")))
 	  (if (= max min)
-	      (format "    assign( '%s', read.table(\"%s\", header=%s, row.names=%s, sep=\"\\t\", as.is=TRUE ), envir = orgVars ); lockBinding('%s', orgVars)" name file header row-names name)
-	    (format "    assign( '%s', read.table(\"%s\", header=%s, row.names=%s, sep=\"\\t\", as.is=TRUE, fill=TRUE, col.names = paste(\"V\", seq_len(%d), sep =\"\") ), envir = orgVars ); lockBinding('%s', orgVars)" name file header row-names max name))))
-    (format "    assign('%s', %s, envir = orgVars); lockBinding('%s', orgVars)" name (org-babel-R-quote-tsv-field value) name)))
+	      (format "     assignElispTable_1('%s', '%s', %s, %s)" name file header row-names)
+	    (format "     assignElispTable_2('%s', '%s', %s, %s, %s)" name file header row-names max))))
+    (format "     assignElispValue('%s', %s)" name (org-babel-R-quote-tsv-field value))))
 
 (defvar ess-ask-for-ess-directory) ; dynamically scoped
 (defun org-babel-R-initiate-session (session params)
