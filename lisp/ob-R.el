@@ -124,7 +124,8 @@ This function is called by `org-babel-execute-src-block'."
 		     (cdr (assoc :session params)) params))
 	   (colnames-p (cdr (assoc :colnames params)))
 	   (rownames-p (cdr (assoc :rownames params)))
-	   (graphics-file (org-babel-graphical-output-file params))
+	   (graphics-file (and (member "graphics" (assq :result-params params))
+			       (org-babel-graphical-output-file params)))
 	   (full-body
 	    (let ((inside
 		   (list (org-babel-expand-body:R body params graphics-file))))
