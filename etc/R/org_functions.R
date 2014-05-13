@@ -1,15 +1,19 @@
 ##
 ## For variable transfer org -> R
 ##
-createOrgVariablesEnvironment <- function(){
+.org.createOrgVariablesEnvironment <- function(){
     while ('org:variables' %in% search()) {
         detach('org:variables')
     }
     attach(what=NULL, name='org:variables')
-    cat("## org:variables environment created and in search path")
+    cat("\n")
+    cat("##########################################################\n")
+    cat("## org:variables environment created and in search path ##\n")
+    cat("##########################################################\n")
+    cat("\n")
 }
 
-assignElispTable_1 <- function(   # name file header row-names
+.org.assignElispTable_1 <- function(   # name file header row-names
     name,
     file,
     header,
@@ -26,7 +30,7 @@ assignElispTable_1 <- function(   # name file header row-names
     )
 }
 
-assignElispTable_2<- function(   #  name file header row-names max
+.org.assignElispTable_2<- function(   #  name file header row-names max
     name,
     file,
     header,
@@ -46,7 +50,7 @@ assignElispTable_2<- function(   #  name file header row-names max
     )
 }
 
-assignElispValue <- function( # name (org-babel-R-quote-tsv-field value) name)))
+.org.assignElispValue <- function( # name (org-babel-R-quote-tsv-field value) name)))
     name,
     value ){
     assign(
@@ -59,6 +63,7 @@ assignElispValue <- function( # name (org-babel-R-quote-tsv-field value) name)))
 ##
 ## Graphics wrapper
 ##
+.org.wrapGraphics <- function(){
     tryCatch(
         {
             list(...)
@@ -80,5 +85,4 @@ assignElispValue <- function( # name (org-babel-R-quote-tsv-field value) name)))
             paste( 'ERROR', e$message, sep=' : ')
         }
     )
-    dev.off()
 }

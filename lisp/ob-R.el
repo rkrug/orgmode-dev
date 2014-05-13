@@ -99,7 +99,7 @@ this variable.")
 	       (append
 		(when (cdr (assoc :prologue params))
 		  (list (cdr (assoc :prologue params))))
-		'("     createOrgVariablesEnvironment()")
+		'("     .org.createOrgVariablesEnvironment()")
 		(org-babel-variable-assignments:R params)
 		(list body)
 		(when (cdr (assoc :epilogue params))
@@ -205,9 +205,9 @@ This function is called by `org-babel-execute-src-block'."
 			  "TRUE" "FALSE"))
 	      (row-names (if rownames-p "1" "NULL")))
 	  (if (= max min)
-	      (format "     assignElispTable_1('%s', '%s', %s, %s)" name file header row-names)
-	    (format "     assignElispTable_2('%s', '%s', %s, %s, %s)" name file header row-names max))))
-    (format "     assignElispValue('%s', %s)" name (org-babel-R-quote-tsv-field value))))
+	      (format "     .org.assignElispTable_1('%s', '%s', %s, %s)" name file header row-names)
+	    (format "     .org.assignElispTable_2('%s', '%s', %s, %s, %s)" name file header row-names max))))
+    (format ".org.assignElispValue('%s', %s)" name (org-babel-R-quote-tsv-field value))))
 
 (defvar ess-ask-for-ess-directory) ; dynamically scoped
 (defun org-babel-R-initiate-session (session params)
