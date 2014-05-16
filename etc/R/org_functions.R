@@ -1,23 +1,32 @@
 ##
 ## For variable transfer org -> R
 ##
-.org.createOrgVariablesEnvironment <- function(){
-    while ('org:variables' %in% search()) {
-        detach('org:variables')
+## Do not use _ in names, nor :: as they cannot be parsed in old R versions
+
+.org.createEnvironment <- function(
+    env = "org:variables"){
+    if (!is.null(env)) {
+	while (env %in% search()) {
+	    detach(pos=grep(env, search()))
+	}
+	attach(what=NULL, name=env)
+	cat("\n")
+	cat("##########################################################\n")
+	cat("##", env, "environment created and in search path\n")
+	cat("##########################################################\n")
+	cat("\n")
     }
-    attach(what=NULL, name='org:variables')
-    cat("\n")
-    cat("##########################################################\n")
-    cat("## org:variables environment created and in search path ##\n")
-    cat("##########################################################\n")
-    cat("\n")
 }
 
 .org.assignElispTable_1 <- function(   # name file header row-names
     name,
     file,
     header,
-    row.names ){
+    row.names,
+    env = "org:variables"){
+    if (is.null(env)) {
+	env <- ".GlobalEnv"
+    }
     assign(
         name,
         read.table(
@@ -26,7 +35,7 @@
             row.names = row.names,
             sep       = "\t",
             as.is     = TRUE ),
-        pos = "org:variables"
+        pos = env
     )
 }
 
@@ -34,7 +43,11 @@
     name,
     file,
     header,
-    row.names ){
+    row.names,
+    env = "org:variables"){
+    if (is.null(env)) {
+	env <- ".GlobalEnv"
+    }
     assign(
         name,
         read.table(
@@ -46,17 +59,21 @@
             fill      = TRUE,
             col.names = paste("V", seq_len(max), sep ="")
         ),
-        pos = "org:variables"
+        pos = env
     )
 }
 
 .org.assignElispValue <- function( # name (org-babel-R-quote-tsv-field value) name)))
     name,
-    value ){
+    value,
+    env = "org:variables"){
+    if (is.null(env)) {
+	env <- ".GlobalEnv"
+    }
     assign(
         name,
         value,
-        pos = "org:variables"
+        pos = env
     )
 }
 

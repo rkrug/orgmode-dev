@@ -9,84 +9,6 @@
 
 ;; This file is part of GNU Emacs.
 
-;; GNU Emacs is free software: you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation, either version 3 of the License, or
-;; (at your option) any later version.
-
-;; GNU Emacs is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-
-;; You should have received a copy of the GNU General Public License
-;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
-
-;;; Commentary:
-
-;; Org-Babel support for evaluating R code
-
-;;; Code:
-(require 'ob)
-(eval-when-compile (require 'cl))
-
-(declare-function orgtbl-to-tsv "org-table" (table params))
-(declare-function R "ext:essd-r" (&optional start-args))
-(declare-function inferior-ess-send-input "ext:ess-inf" ())
-(declare-function ess-make-buffer-current "ext:ess-inf" ())
-(declare-function ess-eval-buffer "ext:ess-inf" (vis))
-(declare-function org-number-sequence "org-compat" (from &optional to inc))
-(declare-function org-remove-if-not "org" (predicate seq))
-(declare-function org-every "org" (pred seq))
-
-(defconst org-babel-header-args:R
-  '((width		 . :any)
-    (height		 . :any)
-    (bg			 . :any)
-    (units		 . :any)
-    (pointsize		 . :any)
-    (antialias		 . :any)
-    (quality		 . :any)
-    (compression	 . :any)
-    (res		 . :any)
-    (type		 . :any)
-    (family		 . :any)
-    (title		 . :any)
-    (fonts		 . :any)
-    (version		 . :any)
-    (paper		 . :any)
-    (encoding		 . :any)
-    (pagecentre		 . :any)
-    (colormodel		 . :any)
-    (useDingbats	 . :any)
-    (horizontal		 . :any)
-    (results             . ((file list vector table scalar verbatim)
-			    (raw org html latex code pp wrap)
-			    (replace silent append prepend)
-			    (output value graphics))))
-  "R-specific header arguments.")
-
-(defconst ob-R-safe-header-args
-  (append org-babel-safe-header-args
-	  '(:width :height :bg :units :pointsize :antialias :quality
-		   :compression :res :type :family :title :fonts
-		   :version :paper :encoding :pagecentre :colormodel
-		   :useDingbats :horizontal))
-  "Header args which are safe for R babel blocks.
-
-See `org-babel-safe-header-args' for documentation of the format of
-this variable.")
-
-(defvar org-babel-default-header-args:R '())
-(put 'org-babel-default-header-args:R 'safe-local-variable
-     (org-babel-header-args-safe-fn ob-R-safe-header-args))
-
-(defcustom org-babel-R-command "R --slave --no-save"
-  "Name of command to use for executing R code."
-  :group 'org-babel
-  :version "24.1"
-  :type 'string)
-
 (defvar ess-local-process-name) ; dynamically scoped
 (defun org-babel-edit-prep:R (info)
   (let ((session (cdr (assoc :session (nth 2 info)))))
@@ -99,7 +21,7 @@ this variable.")
 	       (append
 		(when (cdr (assoc :prologue params))
 		  (list (cdr (assoc :prologue params))))
-		'("     .org.createOrgVariablesEnvironment()")
+		'("     .org.createEnvironment()")
 		(org-babel-variable-assignments:R params)
 		(list body)
 		(when (cdr (assoc :epilogue params))
