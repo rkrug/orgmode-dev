@@ -41,6 +41,8 @@
 (declare-function org-export-string-as "ox"
 		  (string backend &optional body-only ext-plist))
 (declare-function aa2u "ext:ascii-art-to-unicode" ())
+(declare-function calc-eval "calc" (str &optional separator &rest args))
+		  
 (defvar orgtbl-mode) ; defined below
 (defvar orgtbl-mode-menu) ; defined when orgtbl mode get initialized
 (defvar constants-unit-system)
@@ -238,7 +240,12 @@ t       accept as input and present for editing"
 (defcustom org-table-copy-increment t
   "Non-nil means increment when copying current field with \\[org-table-copy-down]."
   :group 'org-table-calculation
-  :type 'boolean)
+  :version "24.5"
+  :package-version '(Org . "8.3")
+  :type '(choice
+	  (const :tag "Use the difference between the current and the above fields" t)
+	  (integer :tag "Use a number" 1)
+	  (const :tag "Don't increment the value when copying a field" nil)))
 
 (defcustom org-calc-default-modes
   '(calc-internal-prec 12
@@ -1099,30 +1106,36 @@ Before doing so, re-align the table if necessary."
 
 ;;;###autoload
 (defun org-table-copy-down (n)
-  "Copy a field down in the current column.
-If the field at the cursor is empty, copy into it the content of
-the nearest non-empty field above.  With argument N, use the Nth
-non-empty field.  If the current field is not empty, it is copied
-down to the next row, and the cursor is moved with it.
-Therefore, repeating this command causes the column to be filled
-row-by-row.
+  "Copy the value of the current field one row below.
+
+If the field at the cursor is empty, copy the content of the
+nearest non-empty field above.  With argument N, use the Nth
+non-empty field.
+
+If the current field is not empty, it is copied down to the next
+row, and the cursor is moved with it.  Therefore, repeating this
+command causes the column to be filled row-by-row.
+
 If the variable `org-table-copy-increment' is non-nil and the
 field is an integer or a timestamp, it will be incremented while
-copying.  In the case of a timestamp, increment by one day."
+copying.  By default, increment by the difference between the
+value in the current field and the one in the field above.  To
+increment using a fixed integer, set `org-table-copy-increment'
+to a number.  In the case of a timestamp, increment by days."
   (interactive "p")
   (let* ((colpos (org-table-current-column))
 	 (col (current-column))
 	 (field (save-excursion (org-table-get-field)))
+	 (field-up (or (save-excursion
+			 (org-table-get (1- (org-table-current-line))
+					(org-table-current-column))) ""))
 	 (non-empty (string-match "[^ \t]" field))
+	 (non-empty-up (string-match "[^ \t]" field-up))
 	 (beg (org-table-begin))
 	 (orig-n n)
-	 txt)
+	 txt txt-up inc)
     (org-table-check-inside-data-field)
-    (if non-empty
-	(progn
-	  (setq txt (org-trim field))
-	  (org-table-next-row)
-	  (org-table-blank-field))
+    (if (not non-empty)
       (save-excursion
 	(setq txt
 	      (catch 'exit
@@ -1133,22 +1146,47 @@ copying.  In the case of a timestamp, increment by one day."
 		  (if (and (looking-at
 			    "|[ \t]*\\([^| \t][^|]*?\\)[ \t]*|")
 			   (<= (setq n (1- n)) 0))
-		      (throw 'exit (match-string 1))))))))
-    (if txt
-	(progn
-	  (if (and org-table-copy-increment
-		   (not (equal orig-n 0))
-		   (string-match "^[0-9]+$" txt)
-		   (< (string-to-number txt) 100000000))
-	      (setq txt (format "%d" (+ (string-to-number txt) 1))))
-	  (insert txt)
-	  (org-move-to-column col)
-	  (if (and org-table-copy-increment (org-at-timestamp-p t))
-	      (org-timestamp-up-day)
-	    (org-table-maybe-recalculate-line))
-	  (org-table-align)
-	  (org-move-to-column col))
-      (user-error "No non-empty field found"))))
+		      (throw 'exit (match-string 1))))))
+	(setq field-up
+	      (catch 'exit
+		(while (progn (beginning-of-line 1)
+			      (re-search-backward org-table-dataline-regexp
+						  beg t))
+		  (org-table-goto-column colpos t)
+		  (if (and (looking-at
+			    "|[ \t]*\\([^| \t][^|]*?\\)[ \t]*|")
+			   (<= (setq n (1- n)) 0))
+		      (throw 'exit (match-string 1))))))
+	(setq non-empty-up (and field-up (string-match "[^ \t]" field-up))))
+      ;; Above field was not empty, go down to the next row
+      (setq txt (org-trim field))
+      (org-table-next-row)
+      (org-table-blank-field))
+    (if non-empty-up (setq txt-up (org-trim field-up)))
+    (setq inc (cond
+	       ((numberp org-table-copy-increment) org-table-copy-increment)
+	       (txt-up (cond ((and (string-match org-ts-regexp3 txt-up)
+				   (string-match org-ts-regexp3 txt))
+			      (- (org-time-string-to-absolute txt)
+				 (org-time-string-to-absolute txt-up)))
+			     ((string-match org-ts-regexp3 txt) 1)
+			     (t (- (string-to-number txt)
+				   (string-to-number txt-up)))))
+	       (t 1)))
+    (if (not txt)
+	(user-error "No non-empty field found")
+      (if (and org-table-copy-increment
+	       (not (equal orig-n 0))
+	       (string-match "^[-+^/*0-9eE.]+$" txt)
+	       (< (string-to-number txt) 100000000))
+	  (setq txt (calc-eval (concat txt "+" (number-to-string inc)))))
+      (insert txt)
+      (org-move-to-column col)
+      (if (and org-table-copy-increment (org-at-timestamp-p t))
+	  (org-timestamp-up-day inc)
+	(org-table-maybe-recalculate-line))
+      (org-table-align)
+      (org-move-to-column col))))
 
 (defun org-table-check-inside-data-field (&optional noerror)
   "Is point inside a table data field?
@@ -2729,7 +2767,8 @@ not overwrite the stored one."
 	  (or (fboundp 'calc-eval)
 	      (user-error "Calc does not seem to be installed, and is needed to evaluate the formula"))
 	  ;; Use <...> time-stamps so that Calc can handle them
-	  (setq form (replace-regexp-in-string org-ts-regexp3 "<\\1>" form))
+	  (while (string-match (concat "\\[" org-ts-regexp1 "\\]") form)
+	    (setq form (replace-match "<\\1>" nil nil form)))
 	  ;; I18n-ize local time-stamps by setting (system-time-locale "C")
 	  (when (string-match org-ts-regexp2 form)
 	    (let* ((ts (match-string 0 form))
