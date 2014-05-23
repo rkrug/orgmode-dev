@@ -15393,7 +15393,10 @@ things up because then unnecessary parsing is avoided."
 			     '("SCHEDULED" "DEADLINE" "CLOCK" "CLOSED"
 			       "TIMESTAMP" "TIMESTAMP_IA")))
 	     (catch 'match
-	       (while (re-search-forward org-maybe-keyword-time-regexp end t)
+	       (while (and (re-search-forward org-maybe-keyword-time-regexp end t)
+			   (not (text-property-any 0 (length (match-string 0))
+						   'face 'font-lock-comment-face
+						   (match-string 0))))
 		 (setq key (if (match-end 1)
 			       (substring (org-match-string-no-properties 1)
 					  0 -1))
@@ -24510,6 +24513,27 @@ To get rid of the restriction, use \\[org-agenda-remove-restriction-lock]."
 	   (save-excursion (goto-char (max (point-min) (1- (point))))
 			   (outline-invisible-p)))
        (org-show-context 'bookmark-jump)))
+
+(eval-after-load "simple"
+  '(defadvice pop-to-mark-command (after org-make-visible activate)
+     "Make the point visible with `org-show-context'."
+     (org-mark-jump-unhide)))
+
+(eval-after-load "simple"
+  '(defadvice exchange-point-and-mark (after org-make-visible activate)
+     "Make the point visible with `org-show-context'."
+     (org-mark-jump-unhide)))
+
+(eval-after-load "simple"
+  '(defadvice pop-global-mark (after org-make-visible activate)
+     "Make the point visible with `org-show-context'."
+     (org-mark-jump-unhide)))
+
+(defun org-mark-jump-unhide ()
+  "Make the point visible with `org-show-context' after jumping to the mark."
+  (when (and (derived-mode-p 'org-mode)
+	     (outline-invisible-p))
+    (org-show-context 'mark-goto)))
 
 ;; Make session.el ignore our circular variable
 (defvar session-globals-exclude)
