@@ -99,10 +99,12 @@ this variable.")
 	     (append
 	      (when (cdr (assoc :prologue params))
 		(list (cdr (assoc :prologue params))))
-	      '(" while ('org:functions' %in% search()) { detach(pos=grep('org:functions', search())) } ")
-	      '(" attach( what = NULL, name = 'org:functions' ) ")
-	      '(" userdir <- '~/.orgR' ")
-	      '(" for( f in dir(userdir, pattern='.R', full.names=TRUE) ){ try(source(f, keep.source = FALSE)) } ")
+	      (list 
+	       " while ('org:functions' %in% search()) { detach(pos=grep('org:functions', search())) } 
+	        attach( what = NULL, name = 'org:functions' ) ")
+	      (list
+	       " userdir <- '~/.orgR' 
+	        for( f in dir(userdir, pattern='.R', full.names=TRUE) ){ try(source(f, keep.source = FALSE)) } ")
 	      '("     .org.createEnvironment()")
 	      (org-babel-variable-assignments:R params)
 	      (list body)
