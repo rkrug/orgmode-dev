@@ -10,7 +10,7 @@ assign(
     ".org.createEnvironment",
     function(
 	env = "org:variables"){
-	if (!is.null(env)) {
+	if (env!="") {
 	    while (env %in% search()) {
 		detach(pos=grep(env, search()))
 	    }
@@ -33,7 +33,7 @@ assign(
 	header,
 	row.names,
 	env = "org:variables"){
-	if (is.null(env)) {
+	if (env=="") {
 	    env <- ".GlobalEnv"
 	}
 	assign(
@@ -58,7 +58,7 @@ assign(
 	header,
 	row.names,
 	env = "org:variables"){
-	if (is.null(env)) {
+	if (env=="") {
 	    env <- ".GlobalEnv"
 	}
 	assign(
@@ -84,7 +84,7 @@ assign(
 	name,
 	value,
 	env = "org:variables"){
-	if (is.null(env)) {
+	if (env=="") {
 	    env <- ".GlobalEnv"
 	}
 	assign(

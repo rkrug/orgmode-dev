@@ -93,6 +93,27 @@ this variable.")
     (when (and session (string-match "^\\*\\(.+?\\)\\*$" session))
       (save-match-data (org-babel-R-initiate-session session nil)))))
 
+(defvar org-babel-R-directory-in-org 
+  (mapconcat 'identity
+	     (append (butlast (split-string (locate-library "org") "/") 2) 
+		     '("etc" "R" ""))
+	     "/")
+  "Original org directory from which the *.R files will be loaded.
+This value should *not* be changed and is determined by the 
+installation location of org.")
+
+(defcustom org-babel-R-variable-environment-name 
+  "org:variables"
+  "Name of the only in the search path located R environment in which
+the variables transfered from org should be stored in R.
+If it is an empty string, all variables will be stored in the .GlobalEnv,
+i.e. the old approach.
+When this variable is changed after variables have been transfered, the 
+old variables will still be present in R and need to be deleted or a new
+session be started."
+  :group 'org-babel
+  :type 'string)
+
 (defun org-babel-expand-body:R (body params &optional graphics-file)
   "Expand BODY according to PARAMS, return the expanded body."
   (mapconcat 'identity
@@ -103,9 +124,9 @@ this variable.")
 	       " while ('org:functions' %in% search()) { detach(pos=grep('org:functions', search())) } 
 	        attach( what = NULL, name = 'org:functions' ) ")
 	      (list
-	       " userdir <- '~/.orgR' 
-	        for( f in dir(userdir, pattern='.R', full.names=TRUE) ){ try(source(f, keep.source = FALSE)) } ")
-	      '("     .org.createEnvironment()")
+	       (format " userdir <- '%s' 
+	        for( f in dir(userdir, pattern='.R', full.names=TRUE) ){ try(source(f, keep.source = FALSE)) } " org-babel-R-directory-in-org))
+	      (list (format "     .org.createEnvironment('%s')" org-babel-R-variable-environment-name ))
 	      (org-babel-variable-assignments:R params)
 	      (list body)
 	      (when (cdr (assoc :epilogue params))
@@ -210,9 +231,9 @@ This function is called by `org-babel-execute-src-block'."
 			  "TRUE" "FALSE"))
 	      (row-names (if rownames-p "1" "NULL")))
 	  (if (= max min)
-	      (format "     .org.assignElispTable_1('%s', '%s', %s, %s)" name file header row-names)
-	    (format "     .org.assignElispTable_2('%s', '%s', %s, %s, %s)" name file header row-names max))))
-    (format ".org.assignElispValue('%s', %s)" name (org-babel-R-quote-tsv-field value))))
+	      (format "     .org.assignElispTable_1('%s', '%s', %s, %s, '%s')" name file header row-names  org-babel-R-variable-environment-name)
+	    (format "     .org.assignElispTable_2('%s', '%s', %s, %s, %s, '%s')" name file header row-names max  org-babel-R-variable-environment-name))))
+    (format ".org.assignElispValue('%s', %s, '%s')" name (org-babel-R-quote-tsv-field value) org-babel-R-variable-environment-name)))
 
 (defvar ess-ask-for-ess-directory) ; dynamically scoped
 (defun org-babel-R-initiate-session (session params)
@@ -295,13 +316,6 @@ Each member of this list is a list with three members:
 
 
 (defvar org-babel-R-write-object-command "{function(object,transfer.file){object;invisible(if(inherits(try({tfile<-tempfile();write.table(object,file=tfile,sep=\"\\t\",na=\"nil\",row.names=%s,col.names=%s,quote=FALSE);file.rename(tfile,transfer.file)},silent=TRUE),\"try-error\")){if(!file.exists(transfer.file))file.create(transfer.file)})}}(object=%s,transfer.file=\"%s\")")
-
-(defvar org-babel-R-create-environment-command "
-while (%s %in% search()) {
-       detach(pos=grep(%s, search()))
-}
-attach(what=NULL, name=%s)
-")
 
 (defun org-babel-R-evaluate
   (session body result-type result-params column-names-p row-names-p)
