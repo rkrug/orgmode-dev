@@ -6,33 +6,6 @@
 ## Will be integrated into org as variables
 ###############
 
-while ("org:functions" %in% search()) {
-    detach(pos=grep("org:functions", search()))
-}
-attach(
-    what = NULL,
-    name = "org:functions"
-)
-
-assign(
-    ".org.createEnvironment",
-    function(
-	env = "org:variables"){
-	if (!is.null(env)) {
-	    while (env %in% search()) {
-		detach(pos=grep(env, search()))
-	    }
-	    attach(what=NULL, name=env)
-	    cat("\n")
-	    cat("##########################################################\n")
-	    cat("##", env, "environment created and in search path\n")
-	    cat("##########################################################\n")
-	    cat("\n")
-	}
-    },
-    "org:functions"
-)
-
 assign(
     ".org.createEnvironment",
     function(
