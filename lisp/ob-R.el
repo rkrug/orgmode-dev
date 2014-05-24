@@ -238,8 +238,8 @@ This function is called by `org-babel-execute-src-block'."
 			  "TRUE" "FALSE"))
 	      (row-names (if rownames-p "1" "NULL")))
 	  (if (= max min)
-	      (format "     .org.assignElispTable_1('%s', '%s', %s, %s, '%s')" name file header row-names  org-babel-R-variable-environment-name)
-	    (format "     .org.assignElispTable_2('%s', '%s', %s, %s, %s, '%s')" name file header row-names max  org-babel-R-variable-environment-name))))
+	      (format ".org.assignElispTable_1('%s', '%s', %s, %s, '%s')" name file header row-names  org-babel-R-variable-environment-name)
+	    (format ".org.assignElispTable_2('%s', '%s', %s, %s, %s, '%s')" name file header row-names max  org-babel-R-variable-environment-name))))
     (format ".org.assignElispValue('%s', %s, '%s')" name (org-babel-R-quote-tsv-field value) org-babel-R-variable-environment-name)))
 
 (defvar ess-ask-for-ess-directory) ; dynamically scoped

@@ -1,0 +1,207 @@
+#+TITLE: org_functions
+#+DATE: <2014-05-24 Sat>
+#+AUTHOR: Rainer M. Krug
+#+EMAIL: Rainer@krugs.de
+#+DESCRIPTION:
+#+KEYWORDS:
+#+CREATOR: Emacs 24.3.1 (Org mode 8.2.6)
+
+:CONFIG:
+#+OPTIONS: ':nil *:t -:t ::t <:t H:3 \n:nil ^:t arch:headline
+#+OPTIONS: author:t c:nil creator:comment d:(not "LOGBOOK") date:t
+#+OPTIONS: e:t email:nil f:t inline:t num:t p:nil pri:nil prop:nil
+#+OPTIONS: stat:t tags:t tasks:t tex:t timestamp:t toc:t todo:t |:t
+#+LANGUAGE: en
+#+SELECT_TAGS: export
+#+EXCLUDE_TAGS: noexport
+#+DRAWERS: HIDDEN PROPERTIES STATE CONFIG BABEL OUTPUT LATEXHEADER HTMLHEADER VARIABLES
+:END:
+:LATEXHEADER:
+#+LATEX_HEADER: \usepackage{rotfloat}
+#+LATEX_HEADER: \usepackage[usenames,dvipsnames,svgnames,table]{xcolor}
+#+LATEX_HEADER: \definecolor{light-gray}{gray}{0.9}
+#+LATEX_HEADER: \lstset{%
+#+LATEX_HEADER:     basicstyle=\ttfamily\footnotesize,       % the font that is used for the code
+#+LATEX_HEADER:     tabsize=4,                       % sets default tabsize to 4 spaces
+#+LATEX_HEADER:     numbers=left,                    % where to put the line numbers
+#+LATEX_HEADER:     numberstyle=\tiny,               % line number font size
+#+LATEX_HEADER:     stepnumber=0,                    % step between two line numbers
+#+LATEX_HEADER:     breaklines=true,                 %!! don't break long lines of code
+#+LATEX_HEADER:     showtabs=false,                  % show tabs within strings adding particular underscores
+#+LATEX_HEADER:     showspaces=false,                % show spaces adding particular underscores
+#+LATEX_HEADER:     showstringspaces=false,          % underline spaces within strings
+#+LATEX_HEADER:     keywordstyle=\color{blue},
+#+LATEX_HEADER:     identifierstyle=\color{black},
+#+LATEX_HEADER:     stringstyle=\color{ForestGreen},
+#+LATEX_HEADER:     commentstyle=\color{red},
+#+LATEX_HEADER:     backgroundcolor=\color{light-gray},   % sets the background color
+#+LATEX_HEADER:     columns=fullflexible,  
+#+LATEX_HEADER:     basewidth={0.5em,0.4em}, 
+#+LATEX_HEADER:     captionpos=b,                    % sets the caption position to `bottom'
+#+LATEX_HEADER:     extendedchars=false              %!?? workaround for when the listed file is in UTF-8
+#+LATEX_HEADER: }
+:END:
+:BABEL:
+#+PROPERTY: tangle yes
+#+PROPERTY: no-expand true
+:END:
+
+* Introduction
+The functions are also defined in the =ob-R.el= file.
+
+* Functions to transfer variables from org to R
+** .org.createEnvironment(env="org:variables")
+#+begin_src R 
+assign(
+    ".org.createEnvironment",
+    function(
+	env = "org:variables"){
+	if (env!="") {
+	    while (env %in% search()) {
+		detach(pos=grep(env, search()))
+	    }
+	    attach(what=NULL, name=env)
+	    cat("\n")
+	    cat("##########################################################\n")
+	    cat("##", env, "environment created and in search path\n")
+	    cat("##########################################################\n")
+	    cat("\n")
+	}
+    },
+    "org:functions"
+)
+#+end_src
+
+** .org.assignElispTable_1(name, file, header, row.names, env="org:variables"
+#+begin_src R 
+assign(
+    ".org.assignElispTable_1",
+    function(   # name file header row-names
+	name,
+	file,
+	header,
+	row.names,
+	env = "org:variables"){
+	if (env=="") {
+	    env <- ".GlobalEnv"
+	}
+	assign(
+	    name,
+	    read.table(
+		file      = file,
+		header    = header,
+		row.names = row.names,
+		sep       = "\t",
+		as.is     = TRUE ),
+	    pos = env
+	)
+    },
+    pos = "org:functions"
+)
+#+end_src
+#+end_src
+
+** .org.assignElispTable_2(name, file, header, row.names, env="org:variables"
+#+begin_src R 
+assign(
+    ".org.assignElispTable_2",
+    function(   #  name file header row-names max
+	name,
+	file,
+	header,
+	row.names,
+	env = "org:variables"){
+	if (env=="") {
+	    env <- ".GlobalEnv"
+	}
+	assign(
+	    name,
+	    read.table(
+		file      = file,
+		header    = header,
+		row.names = row.names,
+		sep       = "\t",
+		as.is     = TRUE,
+		fill      = TRUE,
+		col.names = paste("V", seq_len(max), sep ="")
+	    ),
+	    pos = env
+	)
+    },
+    pos = "org:functions"
+)
+#+end_src
+
+** .org.assignElispValue(name, value, env="org:variables"
+#+begin_src R 
+assign(
+    ".org.assignElispValue",
+    function( # name (org-babel-R-quote-tsv-field value) name)))
+	name,
+	value,
+	env = "org:variables"){
+	if (env=="") {
+	    env <- ".GlobalEnv"
+	}
+	assign(
+	    name,
+	    value,
+	    pos = env
+	)
+    },
+    pos = "org:functions"
+)
+#+end_src
+
+* Work In Progress - not tangled				   :noexport:
+:PROPERTIES:
+:tangle: no
+:END:
+** .org.wrapGraphics(...)
+#+begin_src R 
+assign(
+    ".org.wrapGraphics",
+    function(){
+	tryCatch(
+	    {
+		list(...)
+	    },
+	    error = function(e){
+		plot(
+		    x    = -1:1,
+		    y    = -1:1,
+		    type = 'n',
+		    xlab = '',
+		    ylab = '',
+		    axes = FALSE
+		)
+		text(
+		    x      = 0,
+		    y      = 0,
+		    labels = e$message,
+		    col    = 'red')
+		paste( 'ERROR', e$message, sep=' : ')
+	    }
+	)
+    },
+    pos = "org:functions"
+)
+#+end_src
+
+** org-babel-R-write-object-command
+#+begin_src R 
+{
+    function(object,transfer.file){
+        object;
+        invisible(
+            if (inherits(try({
+                tfile <- tempfile();
+                write.table(object,file=tfile,sep=\"\\t\",na=\"nil\",row.names=%s,col.names=%s,quote=FALSE);
+                file.rename(tfile,transfer.file)},silent=TRUE),\"try-error\")) {
+                if(!file.exists(transfer.file)) file.create(transfer.file)
+            }
+        )
+    }
+}(object=%s,transfer.file=\"%s\")
+#+end_src
+
