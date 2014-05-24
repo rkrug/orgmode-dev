@@ -93,14 +93,12 @@ this variable.")
     (when (and session (string-match "^\\*\\(.+?\\)\\*$" session))
       (save-match-data (org-babel-R-initiate-session session nil)))))
 
-(defvar org-babel-R-directory-in-org 
-  (mapconcat 'identity
-	     (append (butlast (split-string (locate-library "org") "/") 2) 
-		     '("etc" "R" ""))
-	     "/")
-  "Original org directory from which the *.R files will be loaded.
+(defvar org-babel-R-directory-in-org nil
+  "Org directory from which the *.R files will be loaded.
 This value should *not* be changed and is determined by the 
 installation location of org.")
+(setq org-babel-R-directory-in-org 
+      (expand-file-name "../etc/R/" (file-name-directory (locate-library "ob-R"))))
 
 (defcustom org-babel-R-variable-environment-name 
   "org:variables"
