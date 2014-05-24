@@ -112,18 +112,27 @@ session be started."
   :group 'org-babel
   :type 'string)
 
+(defvar org-babel-R-create-org:function-environment-commands 
+  "while ('org:functions' %in% search()) { detach(pos=grep('org:functions', search())) } 
+   attach( what = NULL, name = 'org:functions' ) "
+  "R commands used to create new empty'org:functions' environment
+containing e.g. the R functions to allow transfer variables to R.
+This environment is *only in the search() path in R!")
+
+(defvar org-babel-R-load-functions-in-org:functions-environment-commands nil
+  "R commands used to load .R files in org-babel-R-directory-in-org.")
+(setq org-babel-R-load-functions-in-org:functions-environment-commands
+      (format "for( f in dir('%s', pattern='.R', full.names=TRUE) ){ try(source(f, keep.source = FALSE)) } "
+	      org-babel-R-directory-in-org))
+
 (defun org-babel-expand-body:R (body params &optional graphics-file)
   "Expand BODY according to PARAMS, return the expanded body."
   (mapconcat 'identity
 	     (append
 	      (when (cdr (assoc :prologue params))
 		(list (cdr (assoc :prologue params))))
-	      (list 
-	       " while ('org:functions' %in% search()) { detach(pos=grep('org:functions', search())) } 
-	        attach( what = NULL, name = 'org:functions' ) ")
-	      (list
-	       (format " userdir <- '%s' 
-	        for( f in dir(userdir, pattern='.R', full.names=TRUE) ){ try(source(f, keep.source = FALSE)) } " org-babel-R-directory-in-org))
+	      (list org-babel-R-create-org:function-environment-commands)
+	      (list org-babel-R-load-functions-in-org:functions-environment-commands)
 	      (list (format "     .org.createEnvironment('%s')" org-babel-R-variable-environment-name ))
 	      (org-babel-variable-assignments:R params)
 	      (list body)
