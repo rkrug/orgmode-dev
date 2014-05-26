@@ -6822,7 +6822,8 @@ in special contexts.
 	    (setq has-children (org-list-has-child-p (point) struct)))
 	(org-back-to-heading)
 	(setq eoh (save-excursion (outline-end-of-heading) (point)))
-	(setq eos (save-excursion (1- (org-end-of-subtree t t))))
+	(setq eos (save-excursion (org-end-of-subtree t t)
+				  (when (bolp) (backward-char)) (point)))
 	(setq has-children
 	      (or (save-excursion
 		    (let ((level (funcall outline-level)))
@@ -8271,7 +8272,8 @@ case."
     (save-match-data
       (save-excursion (outline-end-of-heading)
 		      (setq folded (outline-invisible-p)))
-      (outline-end-of-subtree))
+      (progn (org-end-of-subtree nil t)
+	     (unless (eobp) (backward-char))))
     (outline-next-heading)
     (setq ne-end (org-back-over-empty-lines))
     (setq end (point))
@@ -8902,8 +8904,9 @@ When sorting is done, call `org-after-sorting-entries-or-items-hook'."
 	     (or (org-entry-get nil property) ""))
 	    ((= dcst ?o)
 	     (if (looking-at org-complex-heading-regexp)
-		 (- 9999 (length (member (match-string 2)
-					 org-todo-keywords-1)))))
+		 (let* ((m (match-string 2))
+			(s (if (member m org-done-keywords) '- '+)))
+		   (- 99 (funcall s (length (member m org-todo-keywords-1)))))))
 	    ((= dcst ?f)
 	     (if getkey-func
 		 (progn
@@ -9377,8 +9380,6 @@ call CMD."
     (eval `(let ,binds
 	     (call-interactively (quote ,cmd))))))
 
-;;;; Archiving
-
 (defun org-get-category (&optional pos force-refresh)
   "Get the category applying to position POS."
   (save-match-data
@@ -9387,6 +9388,8 @@ call CMD."
       (or (get-text-property pos 'org-category)
 	  (progn (org-refresh-category-properties)
 		 (get-text-property pos 'org-category))))))
+
+;;; Refresh properties
 
 (defun org-refresh-category-properties ()
   "Refresh category text properties in the buffer."
@@ -9417,13 +9420,35 @@ call CMD."
 	     (org-back-to-heading t)
 	     (setq beg (point) end (org-end-of-subtree t t)))
 	   (put-text-property beg end 'org-category cat)
-	   (put-text-property beg end 'org-category-position beg)
 	   (goto-char pos)))))))
+
+(defun org-refresh-stats-properties ()
+  "Refresh stats text properties in the buffer."
+  (let (stats)
+    (org-with-silent-modifications
+     (save-excursion
+       (save-restriction
+	 (widen)
+	 (goto-char (point-min))
+	 (while (re-search-forward
+		 (concat org-outline-regexp-bol ".*"
+			 "\\(?:\\[\\([0-9]+\\)%\\|\\([0-9]+\\)/\\([0-9]+\\)\\]\\)")
+		 nil t)
+	   (setq stats (cond ((equal (match-string 3) "0") 0)
+			     ((match-string 2)
+			      (/ (* (string-to-number (match-string 2)) 100)
+				 (string-to-number (match-string 3))))
+			     (t (string-to-number (match-string 1)))))
+	   (org-back-to-heading t)
+	   (put-text-property (point) (progn (org-end-of-subtree t t) (point))
+			      'org-stats stats)))))))
 
 (defun org-refresh-properties (dprop tprop)
   "Refresh buffer text properties.
-DPROP is the drawer property and TPROP is the corresponding text
-property to set."
+DPROP is the drawer property and TPROP is either the
+corresponding text property to set, or an alist with each element
+being a text property (as a symbol) and a function to apply to
+the value of the drawer property."
   (let ((case-fold-search t)
 	(inhibit-read-only t) p)
     (org-with-silent-modifications
@@ -9435,9 +9460,18 @@ property to set."
 	   (setq p (org-match-string-no-properties 1))
 	   (save-excursion
 	     (org-back-to-heading t)
-	     (put-text-property
-	      (point-at-bol) (or (outline-next-heading) (point-max)) tprop p))))))))
-
+	     ;; tprop is a text property symbol
+	     (if (symbolp tprop)
+		 (put-text-property
+		  (point-at-bol) (or (outline-next-heading) (point-max)) tprop p)
+	       ;; tprop is an alist with (properties . function) elements
+	       (mapc (lambda(al)
+		       (save-excursion
+			 (put-text-property
+			  (point-at-bol) (or (outline-next-heading) (point-max))
+			  (car al)
+			  (funcall (cdr al) p))))
+		     tprop)))))))))
 
 ;;;; Link Stuff
 
@@ -9881,8 +9915,8 @@ according to FMT (default from `org-email-link-description-format')."
 	  "]"))
 
 (defconst org-link-escape-chars
-  ;;%20 %2B %3B %3D %5B %5D
-  '(?\  ?\+ ?\; ?\= ?\[ ?\])
+  ;;%20 %5B %5D
+  '(?\  ?\[ ?\])
   "List of characters that should be escaped in a link when stored to Org.
 This is the list that is used for internal purposes.")
 
@@ -9985,9 +10019,8 @@ Note: this function also decodes single byte encodings like
 	    (setq ret (concat ret (org-char-to-string sum)))
 	    (setq sum 0))
 	   ((not bytes)			; single byte(s)
-	    (setq ret (org-link-unescape-single-byte-sequence hex))))
-	  )) ;; end (while bytes
-      ret )))
+	    (setq ret (org-link-unescape-single-byte-sequence hex))))))
+      ret)))
 
 (defun org-link-unescape-single-byte-sequence (hex)
   "Unhexify hex-encoded single byte character sequences."
@@ -11903,9 +11936,7 @@ this is used for the GOTO interface."
 	 (pos (nth 3 refile-pointer))
 	 buffer)
     (if (and (not (markerp pos)) (not file))
-	(if file
-	    (user-error "Please save the buffer to a file before refiling")
-	  (user-error "Please indicate a target file in the refile path"))
+	(user-error "Please indicate a target file in the refile path")
       (when (org-string-nw-p re)
 	(setq buffer (if (markerp pos)
 			 (marker-buffer pos)
@@ -15294,9 +15325,9 @@ When INCREMENT is non-nil, set the property to the next allowed value."
       (org-entry-put nil prop val))
     (save-excursion
       (org-back-to-heading t)
-      (put-text-property (point-at-bol) (point-at-eol) 'org-effort val))
+      (put-text-property (point-at-bol) (point-at-eol) 'effort val))
     (when (string= heading org-clock-current-task)
-      (setq org-clock-effort (get-text-property (point-at-bol) 'org-effort))
+      (setq org-clock-effort (get-text-property (point-at-bol) 'effort))
       (org-clock-update-mode-line))
     (message "%s is now %s" prop val)))
 
@@ -15712,12 +15743,17 @@ formats in the current buffer."
 	(widen)
 	(goto-char (point-min))
 	(while (re-search-forward org-property-start-re nil t)
-	  (setq range (org-get-property-block))
-	  (goto-char (car range))
-	  (while (re-search-forward org-property-re
-		  (cdr range) t)
-	    (add-to-list 'rtn (org-match-string-no-properties 2)))
-	  (outline-next-heading))))
+	  (catch 'cont
+	    (setq range (or (org-get-property-block)
+			    (if (y-or-n-p
+				 (format "Malformed drawer at %d, repair?" (point)))
+				(org-get-property-block nil nil t)
+				(throw 'cont nil))))
+	    (goto-char (car range))
+	    (while (re-search-forward org-property-re
+				      (cdr range) t)
+	      (add-to-list 'rtn (org-match-string-no-properties 2)))
+	    (outline-next-heading)))))
 
     (when include-specials
       (setq rtn (append org-special-properties rtn)))
@@ -16077,7 +16113,9 @@ completion."
     (when (equal prop org-effort-property)
       (save-excursion
 	(org-back-to-heading t)
-	(put-text-property (point-at-bol) (point-at-eol) 'org-effort nval))
+	(put-text-property (point-at-bol) (point-at-eol) 'effort nval)
+	(put-text-property (point-at-bol) (point-at-eol) 'effort-minutes
+			   (org-duration-string-to-minutes nval)))
       (when (string= org-clock-current-task heading)
 	(setq org-clock-effort nval)
 	(org-clock-update-mode-line)))
@@ -17861,19 +17899,25 @@ is not set, the tables are not re-aligned, etc."
   :version "24.3"
   :group 'org-agenda)
 
-(defcustom org-agenda-ignore-drawer-properties nil
+(define-obsolete-variable-alias
+  'org-agenda-ignore-drawer-properties
+  'org-agenda-ignore-properties "24.5")
+  
+(defcustom org-agenda-ignore-properties nil
   "Avoid updating text properties when building the agenda.
-Properties are used to prepare buffers for effort estimates, appointments,
-and subtree-local categories.
-If you don't use these in the agenda, you can add them to this list and
-agenda building will be a bit faster.
+Properties are used to prepare buffers for effort estimates,
+appointments, statistics and subtree-local categories.
+If you don't use these in the agenda, you can add them to this
+list and agenda building will be a bit faster.
 The value is a list, with zero or more of the symbols `effort', `appt',
-or `category'."
+`stats' or `category'."
   :type '(set :greedy t
 	      (const effort)
 	      (const appt)
+	      (const stats)
 	      (const category))
-  :version "24.3"
+  :version "24.5"
+  :package-version '(Org . "8.3")
   :group 'org-agenda)
 
 (defun org-duration-string-to-minutes (s &optional output-to-string)
@@ -18239,11 +18283,16 @@ When a buffer is unmodified, it is just killed.  When modified, it is saved
 		;; this is only run for setting agenda tags from setup
 		;; file
 		(org-set-regexps-and-options)))
-	    (or (memq 'category org-agenda-ignore-drawer-properties)
+	    (or (memq 'category org-agenda-ignore-properties)
 		(org-refresh-category-properties))
-	    (or (memq 'effort org-agenda-ignore-drawer-properties)
-		(org-refresh-properties org-effort-property 'org-effort))
-	    (or (memq 'appt org-agenda-ignore-drawer-properties)
+	    (or (memq 'stats org-agenda-ignore-properties)
+		(org-refresh-stats-properties))
+	    (or (memq 'effort org-agenda-ignore-properties)
+		(org-refresh-properties
+		 org-effort-property
+		 '((effort . identity)
+		   (effort-minutes . org-duration-string-to-minutes))))
+	    (or (memq 'appt org-agenda-ignore-properties)
 		(org-refresh-properties "APPT_WARNTIME" 'org-appt-warntime))
 	    (setq org-todo-keywords-for-agenda
 		  (append org-todo-keywords-for-agenda org-todo-keywords-1))
@@ -21428,9 +21477,13 @@ With prefix arg UNCOMPILED, load the uncompiled versions."
 
 ;;; Generally useful functions
 
-(defun org-get-at-bol (property)
-  "Get text property PROPERTY at beginning of line."
+(defsubst org-get-at-bol (property)
+  "Get text property PROPERTY at the beginning of line."
   (get-text-property (point-at-bol) property))
+
+(defsubst org-get-at-eol (property n)
+  "Get text property PROPERTY at the end of line less N characters."
+  (get-text-property (- (point-at-eol) n) property))
 
 (defun org-find-text-property-in-string (prop s)
   "Return the first non-nil value of property PROP in string S."
@@ -23730,14 +23783,6 @@ If there is no such heading, return nil."
     		(forward-char -1))))))
   (point))
 
-(defadvice outline-end-of-subtree (around prefer-org-version activate compile)
-  "Use Org version in org-mode, for dramatic speed-up."
-  (if (derived-mode-p 'org-mode)
-      (progn
-	(org-end-of-subtree nil t)
-	(unless (eobp) (backward-char 1)))
-    ad-do-it))
-
 (defun org-end-of-meta-data-and-drawers ()
   "Jump to the first text after meta data and drawers in the current entry.
 This will move over empty lines, lines with planning time stamps,
@@ -24514,6 +24559,12 @@ To get rid of the restriction, use \\[org-agenda-remove-restriction-lock]."
 			   (outline-invisible-p)))
        (org-show-context 'bookmark-jump)))
 
+(defun org-mark-jump-unhide ()
+  "Make the point visible with `org-show-context' after jumping to the mark."
+  (when (and (derived-mode-p 'org-mode)
+	     (outline-invisible-p))
+    (org-show-context 'mark-goto)))
+
 (eval-after-load "simple"
   '(defadvice pop-to-mark-command (after org-make-visible activate)
      "Make the point visible with `org-show-context'."
@@ -24528,12 +24579,6 @@ To get rid of the restriction, use \\[org-agenda-remove-restriction-lock]."
   '(defadvice pop-global-mark (after org-make-visible activate)
      "Make the point visible with `org-show-context'."
      (org-mark-jump-unhide)))
-
-(defun org-mark-jump-unhide ()
-  "Make the point visible with `org-show-context' after jumping to the mark."
-  (when (and (derived-mode-p 'org-mode)
-	     (outline-invisible-p))
-    (org-show-context 'mark-goto)))
 
 ;; Make session.el ignore our circular variable
 (defvar session-globals-exclude)
