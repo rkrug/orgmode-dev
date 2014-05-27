@@ -112,6 +112,14 @@ session be started."
   :group 'org-babel
   :type 'string)
 
+(defvar org-babel-R-begin-variable-transfer-commands 
+  "cat('\n## * Variable Transfer from org\n')"
+  "R command executed at the beginning of the variable transfer.")
+
+(defvar org-babel-R-end-variable-transfer-commands 
+  "cat('\n## * Back to normal code\n')"
+  "R command executed at the beginning of the variable transfer.")
+
 (defvar org-babel-R-create-org:function-environment-commands 
   "while ('org:functions' %in% search()) { detach(pos=grep('org:functions', search())) } 
    attach( what = NULL, name = 'org:functions' ) "
@@ -125,16 +133,20 @@ This environment is *only in the search() path in R!")
       (format "for( f in dir('%s', pattern='.R', full.names=TRUE) ){ try(source(f, keep.source = FALSE)) } "
 	      org-babel-R-directory-in-org))
 
+
+
 (defun org-babel-expand-body:R (body params &optional graphics-file)
   "Expand BODY according to PARAMS, return the expanded body."
   (mapconcat 'identity
 	     (append
 	      (when (cdr (assoc :prologue params))
 		(list (cdr (assoc :prologue params))))
+	      (list org-babel-R-begin-variable-transfer-commands)
 	      (list org-babel-R-create-org:function-environment-commands)
 	      (list org-babel-R-load-functions-in-org:functions-environment-commands)
 	      (list (format "     .org.createEnvironment('%s')" org-babel-R-variable-environment-name ))
 	      (org-babel-variable-assignments:R params)
+	      (list org-babel-R-end-variable-transfer-commands)
 	      (list body)
 	      (when (cdr (assoc :epilogue params))
 		(list (cdr (assoc :epilogue params)))))
