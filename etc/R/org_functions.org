@@ -62,9 +62,7 @@ assign(
 	    }
 	    attach(what=NULL, name=env)
 	    cat("\n")
-	    cat("##########################################################\n")
-	    cat("##", env, "environment created and in search path\n")
-	    cat("##########################################################\n")
+	    cat(env, "environment created and in search path\n")
 	    cat("\n")
 	}
     },
