@@ -694,13 +694,6 @@
      (org-meta-return)
      (beginning-of-line)
      (looking-at "- $")))
-  ;; In a drawer and paragraph insert an empty line, in this case above.
-  (should
-   (org-test-with-temp-text ":MYDRAWER:\na\n:END:"
-     (forward-line)
-     (org-meta-return)
-     (forward-line -1)
-     (looking-at "$")))
   ;; In a drawer and item insert an item, in this case above.
   (should
    (org-test-with-temp-text ":MYDRAWER:\n- a\n:END:"
@@ -708,6 +701,37 @@
      (org-meta-return)
      (beginning-of-line)
      (looking-at "- $"))))
+
+(ert-deftest test-org/insert-heading ()
+  "Test `org-insert-heading' specifications."
+  ;; FIXME: Test coverage is incomplete yet.
+  ;;
+  ;; In an empty buffer, insert a new headline.
+  (should
+   (equal "* "
+	  (org-test-with-temp-text ""
+	    (org-insert-heading)
+	    (buffer-string))))
+  ;; At the beginning of a line, turn it into a headline
+  (should
+   (equal "* P"
+	  (org-test-with-temp-text "<point>P"
+	    (org-insert-heading)
+	    (buffer-string))))
+  ;; In the middle of a line, split the line if allowed, otherwise,
+  ;; insert the headline at its end.
+  (should
+   (equal "Para\n* graph"
+	  (org-test-with-temp-text "Para<point>graph"
+	    (let ((org-M-RET-may-split-line '((default . t))))
+	      (org-insert-heading))
+	    (buffer-string))))
+  (should
+   (equal "Paragraph\n* "
+	  (org-test-with-temp-text "Para<point>graph"
+	    (let ((org-M-RET-may-split-line '((default . nil))))
+	      (org-insert-heading))
+	    (buffer-string)))))
 
 (ert-deftest test-org/insert-todo-heading-respect-content ()
   "Test `org-insert-todo-heading-respect-content' specifications."
@@ -924,7 +948,6 @@
      (org-open-at-point)
      (bobp))))
 
-
 ;;;; Link Escaping
 
 (ert-deftest test-org/org-link-escape-ascii-character ()
@@ -1015,15 +1038,33 @@ drops support for Emacs 24.1 and 24.2."
 
 ;;;; Open at point
 
-(ert-deftest test-org/open-at-point ()
-  "Test `org-open-at-point' with link being a heading property."
-  (org-test-with-temp-text
-      "* Headline
+(ert-deftest test-org/open-at-point-in-property ()
+  "Does `org-open-at-point' open link in property drawer?"
+  (should
+   (org-test-with-temp-text
+    "* Headline
 :PROPERTIES:
 :URL: <point>[[info:org#Top]]
 :END:"
-    (org-open-at-point)))
+    (org-open-at-point) t)))
 
+(ert-deftest test-org/open-at-point-in-comment ()
+  "Does `org-open-at-point' open link in a commented line?"
+  (should
+   (org-test-with-temp-text
+    "# <point>[[info:org#Top]]"
+    (org-open-at-point) t)))
+
+(ert-deftest test-org/open-at-point/info ()
+  "Test `org-open-at-point' on info links."
+  (should
+   (org-test-with-temp-text
+    "<point>[[info:org#Top]]"
+    (org-open-at-point)
+    (and (switch-to-buffer "*info*")
+	 (prog1
+	     (looking-at "\nOrg Mode Manual")
+	   (kill-buffer))))))
 
 
 ;;; Node Properties

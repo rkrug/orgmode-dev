@@ -1794,18 +1794,19 @@ Assume buffer is in Org mode.  Narrowing, if any, is ignored."
 	  (when (stringp value)
 	    (setq plist
 		  (plist-put plist property
-			     (org-element-parse-secondary-string
-			      value (org-element-restriction 'keyword))))))))))
+			     (or (org-element-parse-secondary-string
+				  value (org-element-restriction 'keyword))
+				 ;; When TITLE keyword sets an empty
+				 ;; string, make sure it doesn't
+				 ;; appear as nil in the plist.
+				 (and (eq property :title) ""))))))))))
 
 (defun org-export--get-buffer-attributes ()
   "Return properties related to buffer attributes, as a plist."
   ;; Store full path of input file name, or nil.  For internal use.
   (let ((visited-file (buffer-file-name (buffer-base-buffer))))
-    (list :input-buffer (buffer-name (buffer-base-buffer))
-	  :input-file visited-file
-	  :title (if (not visited-file) (buffer-name (buffer-base-buffer))
-		   (file-name-sans-extension
-		    (file-name-nondirectory visited-file))))))
+    (list :input-file visited-file
+	  :input-buffer (buffer-name (buffer-base-buffer)))))
 
 (defun org-export--get-global-options (&optional backend)
   "Return global export options as a plist.
@@ -1818,23 +1819,22 @@ process."
 	(all (append (and backend (org-export-get-all-options backend))
 		     org-export-options-alist)))
     (dolist (cell all plist)
-      (let ((prop (car cell))
-	    (default-value (nth 3 cell)))
-	(unless (or (not default-value) (plist-member plist prop))
+      (let ((prop (car cell)))
+	(unless (plist-member plist prop)
 	  (setq plist
 		(plist-put
 		 plist
 		 prop
-		 ;; Eval default value provided.  If keyword is
+		 ;; Evaluate default value provided.  If keyword is
 		 ;; a member of `org-element-document-properties',
 		 ;; parse it as a secondary string before storing it.
 		 (let ((value (eval (nth 3 cell))))
-		   (if (not (stringp value)) value
-		     (let ((keyword (nth 1 cell)))
-		       (if (member keyword org-element-document-properties)
-			   (org-element-parse-secondary-string
-			    value (org-element-restriction 'keyword))
-			 value)))))))))))
+		   (if (and (stringp value)
+			    (member (nth 1 cell)
+				    org-element-document-properties))
+		       (org-element-parse-secondary-string
+			value (org-element-restriction 'keyword))
+		     value)))))))))
 
 (defun org-export--list-bound-variables ()
   "Return variables bound from BIND keywords in current buffer.
@@ -3098,6 +3098,14 @@ Return code as a string."
 	       (org-export-install-filters
 		(org-combine-plists
 		 info (org-export-get-environment backend subtreep ext-plist))))
+	 ;; Special case: provide original file name or buffer name as
+	 ;; default value for :title property.
+	 (unless (plist-get info :title)
+	   (plist-put
+	    info :title
+	    (let ((file (plist-get info :input-file)))
+	      (if file (file-name-sans-extension (file-name-nondirectory file))
+		(plist-get info :input-buffer)))))
 	 ;; Expand export-specific set of macros: {{{author}}},
 	 ;; {{{date}}}, {{{email}}} and {{{title}}}.  It must be done
 	 ;; once regular macros have been expanded, since document
@@ -3305,9 +3313,10 @@ paths."
 			value)
 		       (prog1 (match-string 1 value)
 			 (setq value (replace-match "" nil nil value)))))
-		 (env (cond ((string-match "\\<example\\>" value) 'example)
+		 (env (cond ((string-match "\\<example\\>" value)
+			     'literal)
 			    ((string-match "\\<src\\(?: +\\(.*\\)\\)?" value)
-			     (match-string 1 value))))
+			     'literal)))
 		 ;; Minimal level of included file defaults to the child
 		 ;; level of the current headline, if any, or one.  It
 		 ;; only applies is the file is meant to be included as
@@ -3318,7 +3327,11 @@ paths."
 			   (prog1 (string-to-number (match-string 1 value))
 			     (setq value (replace-match "" nil nil value)))
 			 (let ((cur (org-current-level)))
-			   (if cur (1+ (org-reduced-level cur)) 1))))))
+			   (if cur (1+ (org-reduced-level cur)) 1)))))
+		 (src-args (and (eq env 'literal)
+				(match-string 1 value)))
+		 (block (and (string-match "\\<\\(\\S-+\\)\\>" value)
+			     (match-string 1 value))))
 	    ;; Remove keyword.
 	    (delete-region (point) (progn (forward-line) (point)))
 	    (cond
@@ -3332,22 +3345,24 @@ paths."
 	      (error "Recursive file inclusion: %s" file))
 	     (t
 	      (cond
-	       ((eq env 'example)
+	       ((eq env 'literal)
 		(insert
 		 (let ((ind-str (make-string ind ? ))
+		       (arg-str (if (stringp src-args)
+				  (format " %s" src-args)
+				""))
 		       (contents
 			(org-escape-code-in-string
 			 (org-export--prepare-file-contents file lines))))
-		   (format "%s#+BEGIN_EXAMPLE\n%s%s#+END_EXAMPLE\n"
-			   ind-str contents ind-str))))
-	       ((stringp env)
+		   (format "%s#+BEGIN_%s%s\n%s%s#+END_%s\n"
+			   ind-str block arg-str contents ind-str block))))
+	       ((stringp block)
 		(insert
 		 (let ((ind-str (make-string ind ? ))
 		       (contents
-			(org-escape-code-in-string
-			 (org-export--prepare-file-contents file lines))))
-		   (format "%s#+BEGIN_SRC %s\n%s%s#+END_SRC\n"
-			   ind-str env contents ind-str))))
+			 (org-export--prepare-file-contents file lines)))
+		   (format "%s#+BEGIN_%s\n%s%s#+END_%s\n"
+			   ind-str block contents ind-str block))))
 	       (t
 		(insert
 		 (with-temp-buffer
