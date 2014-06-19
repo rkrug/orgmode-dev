@@ -29,7 +29,7 @@ assign(
 	assign(
 	    name,
 	    read.table(
-		file      = file,
+		file      = textConnection(file),
 		header    = header,
 		row.names = row.names,
 		sep       = "\t",
@@ -54,7 +54,7 @@ assign(
 	assign(
 	    name,
 	    read.table(
-		file      = file,
+		file      = textConnection(file),
 		header    = header,
 		row.names = row.names,
 		sep       = "\t",

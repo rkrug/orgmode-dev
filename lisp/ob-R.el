@@ -27,6 +27,8 @@
 ;; Org-Babel support for evaluating R code
 
 ;;; Code:
+
+;;;; 
 (require 'ob)
 (eval-when-compile (require 'cl))
 
@@ -38,6 +40,8 @@
 (declare-function org-number-sequence "org-compat" (from &optional to inc))
 (declare-function org-remove-if-not "org" (predicate seq))
 (declare-function org-every "org" (pred seq))
+
+;;;; variables and constants
 
 (defconst org-babel-header-args:R
   '((width		 . :any)
@@ -113,12 +117,16 @@ session be started."
   :type 'string)
 
 (defvar org-babel-R-begin-variable-transfer-commands 
-  "cat('\n## * Variable Transfer from org\n')"
+  "\n## * Variable Transfer from org"
   "R command executed at the beginning of the variable transfer.")
+(setq org-babel-R-begin-variable-transfer-commands
+      "\n## * Variable Transfer from org")
 
 (defvar org-babel-R-end-variable-transfer-commands 
-  "cat('\n## * Back to normal code\n')"
+  "## * Back to normal code\n"
   "R command executed at the beginning of the variable transfer.")
+(setq org-babel-R-end-variable-transfer-commands
+      "## * Back to normal\n")
 
 (defvar org-babel-R-create-org:function-environment-commands 
   "while ('org:functions' %in% search()) { detach(pos=grep('org:functions', search())) } 
@@ -133,7 +141,7 @@ This environment is *only in the search() path in R!")
       (format "for( f in dir('%s', pattern='.R', full.names=TRUE) ){ try(source(f, keep.source = FALSE)) } "
 	      org-babel-R-directory-in-org))
 
-
+;;;; functions
 
 (defun org-babel-expand-body:R (body params &optional graphics-file)
   "Expand BODY according to PARAMS, return the expanded body."
@@ -239,21 +247,16 @@ This function is called by `org-babel-execute-src-block'."
   (if (listp value)
       (let* ((lengths (mapcar 'length (org-remove-if-not 'sequencep value)))
 	     (max (if lengths (apply 'max lengths) 0))
-	     (min (if lengths (apply 'min lengths) 0))
-	     (transition-file (org-babel-temp-file "R-import-")))
+	     (min (if lengths (apply 'min lengths) 0)))
         ;; Ensure VALUE has an orgtbl structure (depth of at least 2).
         (unless (listp (car value)) (setq value (list value)))
-        (with-temp-file transition-file
-          (insert
-	   (orgtbl-to-tsv value '(:fmt org-babel-R-quote-tsv-field))
-	   "\n"))
-	(let ((file (org-babel-process-file-name transition-file 'noquote))
+	(let ((file (orgtbl-to-tsv value '(:fmt org-babel-R-quote-tsv-field)))
 	      (header (if (or (eq (nth 1 value) 'hline) colnames-p)
 			  "TRUE" "FALSE"))
 	      (row-names (if rownames-p "1" "NULL")))
 	  (if (= max min)
-	      (format ".org.assignElispTable_1('%s', '%s', %s, %s, '%s')" name file header row-names  org-babel-R-variable-environment-name)
-	    (format ".org.assignElispTable_2('%s', '%s', %s, %s, %s, '%s')" name file header row-names max  org-babel-R-variable-environment-name))))
+	      (format ".org.assignElispTable_1('%s', '%s', %s, %s, '%s')"   name file header row-names     org-babel-R-variable-environment-name)
+	    (format ".org.assignElispTable_2('%s', '%s', %s, %s, %s, '%s')" name file header row-names max org-babel-R-variable-environment-name))))
     (format ".org.assignElispValue('%s', %s, '%s')" name (org-babel-R-quote-tsv-field value) org-babel-R-variable-environment-name)))
 
 (defvar ess-ask-for-ess-directory) ; dynamically scoped
