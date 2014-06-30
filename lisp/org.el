@@ -4269,7 +4269,7 @@ After a match, the match groups contain these elements:
 ;; set this option proved cumbersome.  See this message/thread:
 ;; http://article.gmane.org/gmane.emacs.orgmode/68681
 (defvar org-emphasis-regexp-components
-  '(" \t('\"{" "- \t.,:!?;'\")}\\" " \t\r\n,\"'" "." 1)
+  '(" \t('\"{" "- \t.,:!?;'\")}\\\[" " \t\r\n,\"'" "." 1)
   "Components used to build the regular expression for emphasis.
 This is a list with five entries.  Terminology:  In an emphasis string
 like \" *strong word* \", we call the initial space PREMATCH, the final
@@ -19523,8 +19523,8 @@ boundaries."
     ("s" . org-narrow-to-subtree)
     ("=" . org-columns)
     ("Outline Structure Editing")
-    ("U" . org-shiftmetaup)
-    ("D" . org-shiftmetadown)
+    ("U" . org-metaup)
+    ("D" . org-metadown)
     ("r" . org-metaright)
     ("l" . org-metaleft)
     ("R" . org-shiftmetaright)
@@ -24145,7 +24145,7 @@ Move to the previous element at the same level, when possible."
 		       (prev (org-element-at-point))
 		       (up prev))
 		  (while (and (setq up (org-element-property :parent up))
-			      (<= (org-element-property :end prev) beg))
+			      (<= (org-element-property :end up) beg))
 		    (setq prev up))
 		  prev)))))
       ;; Error out if no previous element or previous element is
